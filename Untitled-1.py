@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 from kindwise import PlantApi
 import requests
 import urllib.parse
+import json
 
 # ==========================
 # TAVS KINDWISE API KEY
@@ -17,6 +18,28 @@ api = PlantApi('jMJ0TsKkBoIR3Xvo8sgPhNpcwknJDnTOImc2VwURiJfaYTOcZ9')
 PERENUAL_KEY = "sk-7kCh69b7f944cffbd15498"
 
 
+
+# ----------------------------------------------------------
+#   GOOGLE WEB TRANSLATE → LATVIEŠU VALODA
+# ----------------------------------------------------------
+def translate_to_lv(text):
+    try:
+        url = "https://translate.googleapis.com/translate_a/single"
+        params = {
+            "client": "gtx",
+            "sl": "en",
+            "tl": "lv",
+            "dt": "t",
+            "q": text
+        }
+        response = requests.get(url, params=params)
+        data = response.json()
+        return "".join([t[0] for t in data[0]])
+    except:
+        return text  # ja tulkošana neizdodas, atstāj angliski
+
+
+
 # ----------------------------------------------------------
 #   Perenual: Detalizēta kopšanas informācija
 # ----------------------------------------------------------
@@ -26,7 +49,6 @@ def get_perenual_care_info(scientific_name):
     search_url = f"https://perenual.com/api/v2/species-list?key={PERENUAL_KEY}&q={query}"
 
     try:
-        # 1) Sameklē augu
         search_resp = requests.get(search_url).json()
 
         if "data" not in search_resp or not search_resp["data"]:
@@ -35,21 +57,30 @@ def get_perenual_care_info(scientific_name):
         plant = search_resp["data"][0]
         plant_id = plant["id"]
 
-        # 2) Detalizēta informācija
         details_url = f"https://perenual.com/api/v2/species/details/{plant_id}?key={PERENUAL_KEY}"
         details_resp = requests.get(details_url).json()
 
         care = "\n=== Perenual kopšanas informācija ===\n"
 
+        # ------------------------------------
+        # Latviesots laistīšanas kalkulators
+        # ------------------------------------
+        watering_map = {
+            "frequent": "3–5 reizes nedēļā",
+            "average": "1–2 reizes nedēļā",
+            "minimum": "1 reizi 10–14 dienās",
+            "none": "Nav nepieciešams laistīt"
+        }
+
+        watering = details_resp.get("watering")
+        if watering:
+            care += f"- Laistīšana: {watering_map.get(watering, watering)}\n"
+
         # Saules gaisma
         sunlight = details_resp.get("sunlight")
         if sunlight:
-            care += f"- Saules gaisma: {', '.join(sunlight)}\n"
-
-        # Laistīšana
-        watering = details_resp.get("watering")
-        if watering:
-            care += f"- Laistīšana: {watering}\n"
+            lv_sun = translate_to_lv(", ".join(sunlight))
+            care += f"- Saules gaisma: {lv_sun}\n"
 
         # Temperatūra
         temp_min = details_resp.get("temperature_min")
@@ -68,7 +99,7 @@ def get_perenual_care_info(scientific_name):
         # Kopšanas līmenis
         care_level = details_resp.get("care_level")
         if care_level:
-            care += f"- Aprūpes līmenis: {care_level}\n"
+            care += f"- Aprūpes līmenis: {translate_to_lv(care_level)}\n"
 
         # Indīgums
         poisonous = details_resp.get("poisonous_to_pets")
@@ -78,12 +109,13 @@ def get_perenual_care_info(scientific_name):
         # Apraksts
         desc = details_resp.get("description")
         if desc:
-            care += f"\nApraksts:\n{desc}\n"
+            care += f"\nApraksts:\n{translate_to_lv(desc)}\n"
 
         return care
 
     except Exception as e:
         return f"\nKļūda, pieslēdzoties Perenual API: {str(e)}\n"
+
 
 
 # ----------------------------------------------------------
@@ -92,7 +124,6 @@ def get_perenual_care_info(scientific_name):
 def identify_plant():
     global img_tk
 
-    # izvēlēties failu
     image_path = filedialog.askopenfilename(
         title="Izvēlies auga bildi",
         filetypes=[("Image files", "*.jpg *.jpeg *.png")]
@@ -102,7 +133,6 @@ def identify_plant():
         show_result("Nav izvēlēta bilde")
         return
 
-    # Bildes priekšskatījums
     img = Image.open(image_path)
     img = img.resize((300, 300))
     img_tk = ImageTk.PhotoImage(img)
@@ -112,7 +142,6 @@ def identify_plant():
     show_result("Analizēju attēlu...")
     root.update_idletasks()
 
-    # Kindwise API — attēla atpazīšana
     identification = api.identify(image_path, details=['url', 'common_names'])
 
     progress.stop()
@@ -129,15 +158,19 @@ def identify_plant():
     output += "Labākā atbilstība:\n\n"
 
     for s in best_matches:
-        output += f"- {s.name}\n"
+        output += f"- Nosaukums: {translate_to_lv(s.name)}\n"
         output += f"  Varbūtība: {s.probability:.2%}\n"
         output += f"  URL: {s.details['url']}\n"
-        output += f"  Citas formas: {s.details['common_names']}\n\n"
+        
+        cn = ", ".join(s.details.get("common_names", []))
+        if cn:
+            output += f"  Citas formas: {translate_to_lv(cn)}\n\n"
 
-        # 🔥 Pievienots pilnais Perenual kopšanas info
+        # Pievienot kopšanas info
         output += get_perenual_care_info(s.name)
 
     show_result(output)
+
 
 
 # ----------------------------------------------------------
@@ -151,7 +184,7 @@ def show_result(text):
 
 
 root = tk.Tk()
-root.title("Augu atpazīšana ar kopšanas datiem")
+root.title("Augu atpazīšana – ar tulkotu kopšanas informāciju")
 
 ttk.Button(root, text="Izvēlēties bildi un noteikt augu", command=identify_plant).pack(pady=10)
 
@@ -161,7 +194,7 @@ progress.pack(pady=5)
 image_label = tk.Label(root)
 image_label.pack(pady=10)
 
-result_box = tk.Text(root, width=70, height=20, wrap="word")
+result_box = tk.Text(root, width=70, height=25, wrap="word")
 result_box.pack(padx=10, pady=10)
 result_box.config(state="disabled")
 
