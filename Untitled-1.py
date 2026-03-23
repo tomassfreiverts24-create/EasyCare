@@ -18,7 +18,6 @@ api = PlantApi('jMJ0TsKkBoIR3Xvo8sgPhNpcwknJDnTOImc2VwURiJfaYTOcZ9')
 PERENUAL_KEY = "sk-7kCh69b7f944cffbd15498"
 
 
-
 # ----------------------------------------------------------
 #   GOOGLE WEB TRANSLATE → LATVIEŠU VALODA
 # ----------------------------------------------------------
@@ -46,6 +45,8 @@ def translate_to_lv(text):
 def get_perenual_care_info(scientific_name):
 
     query = urllib.parse.quote(scientific_name)
+
+    # ❗ LABOTS — NOŅEMTS "&amp;"
     search_url = f"https://perenual.com/api/v2/species-list?key={PERENUAL_KEY}&q={query}"
 
     try:
@@ -74,7 +75,7 @@ def get_perenual_care_info(scientific_name):
 
         watering = details_resp.get("watering")
         if watering:
-            care += f"- Laistīšana: {watering_map.get(watering, watering)}\n"
+            care += f"- Laistīšana: {watering_map.get(watering.lower(), watering)}\n"
 
         # Saules gaisma
         sunlight = details_resp.get("sunlight")
@@ -94,7 +95,7 @@ def get_perenual_care_info(scientific_name):
         # Mitrums
         humidity = details_resp.get("humidity")
         if humidity:
-            care += f"- Mitrums: {humidity}\n"
+            care += f"- Mitrums: {translate_to_lv(humidity)}\n"
 
         # Kopšanas līmenis
         care_level = details_resp.get("care_level")
