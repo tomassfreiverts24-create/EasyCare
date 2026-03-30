@@ -202,4 +202,4 @@ result_box.config(state="disabled")
 
 root.mainloop()
 
-# testejam git
+# testejam git atkal
