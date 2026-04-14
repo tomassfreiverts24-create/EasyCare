@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk
 from kindwise import PlantApi
@@ -9,8 +9,13 @@ import threading
 import traceback
 
 from plant_search import search_plants_by_name, get_plant_care_by_scientific_name
-from Registracija import login, register, save_plant, get_user_plants
-
+from Registracija import (
+    login,
+    register,
+    save_plant,
+    get_user_plants,
+    delete_plant
+)
 
 # ================== API KEYS ==================
 api = PlantApi("jMJ0TsKkBoIR3Xvo8sgPhNpcwknJDnTOImc2VwURiJfaYTOcZ9")
@@ -19,8 +24,7 @@ PERENUAL_KEY = "sk-7kCh69b7f944cffbd15498"
 current_user = None
 latest_plant = {}
 
-
-# ================== TRANSLATE ==================
+# ================== TULKOŠANAS + SKAIDROJUMI ==================
 def translate_to_lv(text):
     try:
         r = requests.get(
@@ -39,45 +43,64 @@ def translate_to_lv(text):
         return text
 
 
+def explain_watering(level):
+    level = level.lower()
+    return {
+        "minimum": "Laistīt 1 reizi ik pēc 10–14 dienām. Augs iztur sausumu.",
+        "low": "Laistīt 1 reizi nedēļā, kad augsnes virskārta izžuvusi.",
+        "average": "Laistīt 2 reizes nedēļā, augsnei jābūt viegli mitrai.",
+        "moderate": "Laistīt 2–3 reizes nedēļā, neļaut izžūt.",
+        "frequent": "Laistīt 3–4 reizes nedēļā, augs mīl mitrumu."
+    }.get(level, "Laistīt, kad augsnes virskārta sāk izžūt.")
+
+
+def explain_sunlight(text):
+    t = text.lower()
+    if "full sun" in t:
+        return "Tieša saule (6–8 h dienā), ideāli – dienvidu logs."
+    if "part" in t:
+        return "Daļēja saule – gaiša vieta bez pusdienas saules."
+    if "shade" in t:
+        return "Pusēna vai ēna – tikai netieša gaisma."
+    return "Gaiša vieta ar izkliedētu dienasgaismu."
+
+
+def explain_temperature(watering):
+    if watering in ["frequent", "average", "moderate"]:
+        return "Optimālā temperatūra: 18–26 °C"
+    return "Optimālā temperatūra: 15–24 °C"
+
 # ================== PERENUAL ==================
 def get_perenual(scientific):
     q = urllib.parse.quote(scientific)
-
     search = requests.get(
         f"https://perenual.com/api/v2/species-list?key={PERENUAL_KEY}&q={q}",
         timeout=15
     ).json()
 
     if not search.get("data"):
-        return "\n❌ Nav datu no Perenual."
+        return
 
     pid = search["data"][0]["id"]
-
     details = requests.get(
         f"https://perenual.com/api/v2/species/details/{pid}?key={PERENUAL_KEY}",
         timeout=15
     ).json()
 
+    watering_raw = details.get("watering", "average")
+    sunlight_raw = ", ".join(details.get("sunlight", []))
+
     latest_plant.update({
-        "scientific": scientific,
-        "watering": details.get("watering", "Nav zināms"),
-        "sunlight": ", ".join(details.get("sunlight", [])),
-        "desc": details.get("description", "")
+        "watering": explain_watering(watering_raw),
+        "sunlight": explain_sunlight(sunlight_raw),
+        "temperature": explain_temperature(watering_raw),
+        "desc": translate_to_lv(details.get("description", ""))
     })
-
-    out = "\n=== 🌱 Kopšana ===\n"
-    out += f"Laistīšana: {latest_plant['watering']}\n"
-    out += f"Gaisma: {translate_to_lv(latest_plant['sunlight'])}\n\n"
-    out += translate_to_lv(latest_plant["desc"])
-
-    return out
-
 
 # ================== PROGRESS ==================
 def set_progress(val):
     progress["value"] = val
     root.update_idletasks()
-
 
 # ================== LOGIN ==================
 def show_login():
@@ -106,13 +129,12 @@ def show_login():
 
     def do_register():
         if register(u.get(), p.get()):
-            msg.config(text="✅ Reģistrēts! Tagad pieslēdzies.")
+            msg.config(text="✅ Reģistrēts! Pieslēdzies.")
         else:
             msg.config(text="⚠️ Lietotājs jau eksistē")
 
     tk.Button(root, text="Pieslēgties", command=do_login).pack()
     tk.Button(root, text="Reģistrēties", command=do_register).pack()
-
 
 # ================== MAIN ==================
 def show_main():
@@ -131,57 +153,13 @@ def show_main():
     img_label = tk.Label(root)
     img_label.pack(pady=5)
 
-    result = tk.Text(root, width=70, height=22)
+    result = tk.Text(root, width=80, height=26)
     result.pack()
 
-    ttk.Button(
-        root,
-        text="🔍 Meklēt augu datubāzē",
-        command=search_in_database
-    ).pack(pady=5)
-
-
-# ================== DB SEARCH ==================
-def search_in_database():
-    popup = tk.Toplevel(root)
-    popup.title("Meklēt augu datubāzē")
-
-    tk.Label(popup, text="Ievadi nosaukuma daļu:").pack()
-    entry = tk.Entry(popup)
-    entry.pack()
-
-    listbox = tk.Listbox(popup, width=60)
-    listbox.pack()
-
-    def do_search():
-        listbox.delete(0, tk.END)
-        for n, s in search_plants_by_name(entry.get()):
-            listbox.insert(tk.END, f"{n} ({s})")
-
-    def show_selected():
-        sel = listbox.curselection()
-        if not sel:
-            return
-        sci = listbox.get(sel[0]).split("(")[-1].replace(")", "")
-        plant = get_plant_care_by_scientific_name(sci)
-        popup.destroy()
-        if plant:
-            n, s, w, l, d = plant
-            result.delete("1.0", tk.END)
-            result.insert(
-                tk.END,
-                f"{n}\n{s}\n\nLaistīšana: {w}\nGaisma: {l}\n\n{d}"
-            )
-
-    ttk.Button(popup, text="Meklēt", command=do_search).pack()
-    ttk.Button(popup, text="Parādīt", command=show_selected).pack()
-
-
-# ================== IDENTIFY (UI) ==================
+# ================== IDENTIFY ==================
 def start_identify():
     latest_plant.clear()
     set_progress(0)
-
     path = filedialog.askopenfilename()
     if not path:
         return
@@ -192,59 +170,50 @@ def start_identify():
 
     result.delete("1.0", tk.END)
     result.insert(tk.END, "🔍 Atpazīst augu...\n")
-    set_progress(25)
 
-    threading.Thread(
-        target=identify_worker,
-        args=(path,),
-        daemon=True
-    ).start()
+    threading.Thread(target=identify_worker, args=(path,), daemon=True).start()
 
-
-# ================== IDENTIFY (THREAD) ==================
 def identify_worker(path):
     try:
-        set_progress(40)
-
         res = api.identify(path)
-        best = max(
-            res.result.classification.suggestions,
-            key=lambda x: x.probability
-        )
+        best = max(res.result.classification.suggestions, key=lambda x: x.probability)
 
-        # Kindwise: best.name ir ZINĀTNISKAIS NOSAUKUMS
         latest_plant["name"] = best.name
         latest_plant["scientific"] = best.name
 
-        set_progress(65)
-
-        care = get_perenual(best.name)
-
-        set_progress(85)
-
-        root.after(0, show_result, best, care)
+        get_perenual(best.name)
+        root.after(0, show_result, best)
 
     except Exception as e:
         root.after(0, show_error, e)
 
-
-def show_result(best, care):
+def show_result(best):
     result.delete("1.0", tk.END)
     result.insert(
         tk.END,
-        f"{best.name}\n"
-        f"Varbūtība: {best.probability:.2%}\n"
-        f"{care}"
-    )
-    set_progress(100)
+        f"""
+🌱 Nosaukums: {best.name}
+🔬 Zinātniskais nosaukums: {best.name}
+✅ Precizitāte: {best.probability:.2%}
 
+💧 Laistīšana:
+{latest_plant['watering']}
+
+☀️ Apgaismojums:
+{latest_plant['sunlight']}
+
+🌡️ Temperatūra:
+{latest_plant['temperature']}
+
+📖 Apraksts:
+{latest_plant['desc']}
+"""
+    )
 
 def show_error(e):
     result.delete("1.0", tk.END)
-    result.insert(tk.END, "❌ Kļūda auga atpazīšanā:\n\n" + str(e))
+    result.insert(tk.END, "❌ Kļūda:\n" + str(e))
     traceback.print_exc()
-    set_progress(0)
-
 
 # ================== SAVE ==================
 def save_current():
@@ -255,30 +224,41 @@ def save_current():
         current_user,
         latest_plant["name"],
         latest_plant["scientific"],
-        latest_plant.get("watering", ""),
-        latest_plant.get("sunlight", ""),
-        latest_plant.get("desc", "")
+        latest_plant["watering"],
+        latest_plant["sunlight"],
+        latest_plant["desc"]
     )
+    result.insert(tk.END, "\n✅ Saglabāts bibliotēkā\n")
 
-    result.insert(tk.END, "\n✅ Saglabāts bibliotēkā!\n")
-
+# ================== DELETE ==================
+def confirm_delete(sci, name):
+    if messagebox.askyesno("Dzēst", f"Vai dzēst {name}?"):
+        delete_plant(current_user, sci)
+        show_library()
 
 # ================== LIBRARY ==================
 def show_library():
     result.delete("1.0", tk.END)
     plants = get_user_plants(current_user)
 
-    if not plants:
-        result.insert(tk.END, "📭 Bibliotēka ir tukša")
-        return
+    frame = tk.Frame(result)
+    result.window_create(tk.END, window=frame)
 
-    for p in plants:
-        result.insert(
-            tk.END,
-            f"🌱 {p[0]} ({p[1]})\n"
-            f"Laistīšana: {p[2]} | Gaisma: {p[3]}\n\n"
-        )
+    for name, sci, water, light in plants:
+        row = tk.Frame(frame, pady=5)
+        row.pack(fill="x")
 
+        tk.Label(
+            row,
+            text=f"🌱 {name}\n💧 {water}\n☀️ {light}",
+            justify="left"
+        ).pack(side="left", fill="x", expand=True)
+
+        tk.Button(
+            row,
+            text="🗑 Dzēst",
+            command=lambda s=sci, n=name: confirm_delete(s, n)
+        ).pack(side="right")
 
 # ================== START ==================
 root = tk.Tk()
