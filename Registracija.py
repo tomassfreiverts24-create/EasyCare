@@ -1,7 +1,12 @@
 import sqlite3
 import hashlib
 
-DB_NAME = "database.db"
+DB_NAME = None
+
+def set_database(db_name):
+    global DB_NAME
+    DB_NAME = db_name
+
 
 
 # ================== PASSWORD ==================
@@ -141,4 +146,4 @@ def delete_plant(user_id, scientific_name):
 
 
 # ================== START ==================
-init_db()
+

@@ -7,6 +7,11 @@ import urllib.parse
 import threading
 import traceback
 
+
+from Registracija import set_database
+
+set_database("database.db")
+
 from Registracija import (
     login,
     register,

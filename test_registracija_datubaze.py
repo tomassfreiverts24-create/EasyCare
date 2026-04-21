@@ -1,30 +1,54 @@
 
 import unittest
-from Registracija import register, login, save_plant, get_user_plants
+import os
+import uuid
 
-TEST_USER = "test_user_123"
-TEST_PASS = "password123"
+from Registracija import (
+    set_database,
+    init_db,
+    register,
+    login,
+    save_plant,
+    get_user_plants,
+    delete_plant
+)
 
+class TestRegistracijaDB(unittest.TestCase):
 
-class TestAuthAndDB(unittest.TestCase):
+    def setUp(self):
+        """
+        Katram testam veido JAUNU DB failu
+        (nav lock, nav konflikta, nav WinError)
+        """
+        self.test_db = f"test_{uuid.uuid4().hex}.db"
+        set_database(self.test_db)
+        init_db()
+
+    def tearDown(self):
+        """
+        AIZVER un dzēš DB pēc katra testa
+        """
+        if os.path.exists(self.test_db):
+            try:
+                os.remove(self.test_db)
+            except PermissionError:
+                pass  # Windows dažreiz aizkavē atslēgšanu
 
     def test_register_and_login(self):
-        """
-        Tests, vai var reģistrēt lietotāju
-        un pēc tam pieslēgties
-        """
-        # Reģistrācija (ja jau eksistē, tas nav tests kļūdai)
-        register(TEST_USER, TEST_PASS)
+        result = register("user1", "pass")
+        self.assertTrue(result)
 
-        user_id = login(TEST_USER, TEST_PASS)
+        user_id = login("user1", "pass")
         self.assertIsNotNone(user_id)
+
+    def test_duplicate_register(self):
+        register("dup_user", "pass")
+        second = register("dup_user", "pass")
+        self.assertFalse(second)
 
     def test_save_and_get_plant(self):
-        """
-        Tests, vai augu var saglabāt un nolasīt no DB
-        """
-        user_id = login(TEST_USER, TEST_PASS)
-        self.assertIsNotNone(user_id)
+        register("plant_user", "pass")
+        user_id = login("plant_user", "pass")
 
         save_plant(
             user_id,
@@ -36,7 +60,24 @@ class TestAuthAndDB(unittest.TestCase):
         )
 
         plants = get_user_plants(user_id)
-        self.assertTrue(len(plants) > 0)
+        self.assertEqual(len(plants), 1)
+
+    def test_delete_plant(self):
+        register("del_user", "pass")
+        user_id = login("del_user", "pass")
+
+        save_plant(
+            user_id,
+            "Plant",
+            "Plantus deleto",
+            "Zema",
+            "Ēna",
+            "Apraksts"
+        )
+
+        delete_plant(user_id, "Plantus deleto")
+        plants = get_user_plants(user_id)
+        self.assertEqual(len(plants), 0)
 
 
 if __name__ == "__main__":
