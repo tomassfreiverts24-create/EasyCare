@@ -1,0 +1,115 @@
+EasyCare – Programmas lietošanas pamācība
+1️⃣ Failu mapes augšupielāde serverī
+Sagatavo projekta mapi, kurā atrodas:
+
+galvenais Python fails (piem., main.py)
+datubāzes modulis (piem., Registracija.py)
+citas nepieciešamās Python datnes
+
+Izmantojot servera failu pārvaldnieku vai FTP:
+
+augšupielādē VISU projekta mapi
+pārliecinies, ka tiek saglabāta pareiza mapes struktūra
+
+2️⃣ Nepieciešamo bibliotēku uzstādīšana
+Pirms programmas palaišanas jānodrošina, ka serverī ir uzinstalētas vajadzīgās Python bibliotēkas.
+Pārbaudi Python versiju:
+python --version
+Ieteicams Python 3.9 vai jaunāks.
+Uzstādi vajadzīgās bibliotēkas:
+pip install pillow requests kindwise
+Tkinter parasti jau ir iekļauts Python instalācijā.
+
+3️⃣ Programmas palaišana
+Atrodoties projekta mapē, palaid programmu:
+python main.py
+Tiks atvērts programmas logs EasyCare 🌿.
+Pirmajā palaišanas reizē:
+
+automātiski tiek izveidota datubāze database.db
+tiek izveidotas tabulas lietotājiem un augiem
+
+
+4️⃣ Pieslēgšanās un reģistrācija
+Programmas sākuma logā:
+
+ievadi lietotājvārdu
+ievadi paroli
+
+Ja lietotājs vēl neeksistē:
+
+nospied pogu “Reģistrēties”
+pēc veiksmīgas reģistrācijas pieslēdzies
+
+Ja dati ir pareizi:
+
+tiek atvērta galvenā programmas saskarne
+
+
+5️⃣ Auga atpazīšana pēc attēla
+
+nospied pogu “📷 Atpazīt”
+izvēlies auga attēlu no sava datora
+
+Programma:
+
+nosūta attēlu auga atpazīšanas API
+nosaka auga nosaukumu
+iegūst kopšanas informāciju
+
+Rezultātā tiek parādīts:
+
+auga nosaukums
+laistīšanas biežums
+gaismas prasības
+temperatūra
+apraksts latviešu valodā
+
+
+6️⃣ Auga meklēšana pēc nosaukuma
+
+meklēšanas laukā ievadi auga nosaukumu (piem., Rose)
+nospied pogu “Meklēt”
+
+Ja augs tiek atrasts:
+
+tiek parādīta kopšanas informācija
+
+Ja netiek atrasts:
+
+tiek parādīts kļūdas paziņojums
+
+
+7️⃣ Auga saglabāšana bibliotēkā
+Pēc atpazīšanas vai meklēšanas:
+
+nospied pogu “➕ Saglabāt”
+
+Augs tiek:
+
+piesaistīts tavam lietotāja kontam
+saglabāts datubāzē
+
+Apstiprinājums:
+Saglabāts bibliotēkā
+
+8️⃣ Personīgā augu bibliotēka
+
+nospied pogu “📚 Bibliotēka”
+
+Tiek parādīti visi:
+
+lietotāja saglabātie augi
+ar laistīšanas un apgaismojuma informāciju
+
+Bibliotēkā iespējams:
+
+pārskatīt augus
+dzēst augus, kas vairs nav vajadzīgi
+
+
+9️⃣ Auga dzēšana
+
+pie izvēlētā auga nospied pogu “🗑 Dzēst”
+apstiprini darbību
+augs tiek neatgriezeniski izdzēsts no lietotāja bibliotēkas

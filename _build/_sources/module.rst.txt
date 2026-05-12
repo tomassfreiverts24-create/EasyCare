@@ -1,0 +1,5 @@
+augu_saraksts module
+====================
+
+.. automodule:: augu_saraksts
+   :members:

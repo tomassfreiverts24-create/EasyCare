@@ -1,0 +1,15 @@
+
+ Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments (ja kādreiz lietosi)
+venv/
+.env/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# SQLite datubāze (NEKOMITOT, ja nav testu)
+# database.db
